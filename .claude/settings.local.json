@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"authenticator\\\\|ekyc\\\\|code exchange\\\\|X-API-KEY\\\\|x-api-key\" '/d/AI Projects/Invoicer App Frontend' --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.js\" --include=\"*.jsx\" ! -path \"*/node_modules/*\" ! -path \"*/.next/*\")",
+      "Bash(ls -la '/d/AI Projects/Invoicer App Frontend/app/\\(auth\\)/')"
+    ]
+  }
+}
