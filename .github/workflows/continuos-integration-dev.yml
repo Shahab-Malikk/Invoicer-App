@@ -1,0 +1,102 @@
+name: CI Dev - TZ
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+env:
+    REGISTRY: ghcr.io
+    IMAGE_NAME: ${{ github.repository }}
+    INFRA_REPOSITORY: azampay-ltd/pgvnext-infra
+    INFRA_REPO_PATH: kustomize/invoicer-app/overlays/dev
+    TAG_PREFIX: dev
+    PROJECT_NAME: Invoicer-app
+jobs:
+    build_and_publish_image:
+        environment: 'Dev'
+        runs-on: ubuntu-latest
+
+        permissions:
+            contents: read
+            packages: write
+            
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Set short commit hash in env
+              run: echo "COMMIT_SHA=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
+
+            - name: Log in to the Container registry
+              uses: docker/login-action@v3
+              with:
+                  registry: ${{ env.REGISTRY }}
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Prepare Lowercase Names
+              run: |
+                  echo IMAGE_NAME=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]') >> $GITHUB_ENV
+
+            - name: Extract metadata (tags, labels) for Docker
+              id: meta
+              uses: docker/metadata-action@v5
+              with:
+                  images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+            - name: Build and push Docker image ${{ env.PROJECT_NAME }}
+              id: docker_build
+              uses: docker/build-push-action@v6
+              with:
+                  context: .
+                  push: ${{ github.event_name != 'pull_request' }}
+                  tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TAG_PREFIX }}-${{ env.COMMIT_SHA }}
+                  labels: ${{ steps.meta.outputs.labels }}
+                  file: dockerfile
+
+            - name: Run the image in a container ${{ env.PROJECT_NAME }}
+              uses: addnab/docker-run-action@v3
+              with:
+                  image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TAG_PREFIX }}-${{ env.COMMIT_SHA }}
+                  run: |
+                      echo "running the docker image"
+                      echo ${{ steps.docker_build.outputs.digest }}
+
+        outputs:
+            DOCKER_IMAGE_API: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TAG_PREFIX }}-${{ env.COMMIT_SHA }}
+
+    deploy:
+        name: deploy
+        runs-on: ubuntu-latest
+        needs: build_and_publish_image
+        if: ${{ github.event_name != 'pull_request' }}
+        steps:
+            - name: Check out infra code
+              uses: actions/checkout@v4
+              with:
+                  token: ${{ secrets.INFRA_GITHUB_TOKEN }}
+                  repository: ${{ env.INFRA_REPOSITORY }}
+            - name: Setup Kustomize
+              uses: imranismail/setup-kustomize@v2
+              with:
+                  kustomize-version: "3.6.1"
+            - name: Update Kubernetes resources
+              env:
+                  DOCKER_IMAGE: ${{ needs.build_and_publish_image.outputs.DOCKER_IMAGE_API }}
+              run: |
+                  cd ${{ env.INFRA_REPO_PATH }}
+                  kustomize edit set image app-image=$DOCKER_IMAGE
+                  cat kustomization.yaml
+            - name: Commit files
+              run: |
+                  git config --local user.email "action@github.com"
+                  git config --local user.name "GitHub Action"
+                  git commit -am "Bump docker tag"
+            - name: Push changes
+              uses: ad-m/github-push-action@master
+              with:
+                  github_token: ${{ secrets.INFRA_GITHUB_TOKEN }}
+                  repository: ${{ env.INFRA_REPOSITORY }}
