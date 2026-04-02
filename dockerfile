@@ -1,3 +1,5 @@
+ARG VITE_ENV=dev
+
 # Stage 1: Build the application
 FROM node:20.15.1 AS build
 
