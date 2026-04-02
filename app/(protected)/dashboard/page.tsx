@@ -5,6 +5,11 @@ import Link from "next/link";
  * Module registry — the single place to register a new module's display info.
  * Adding a new module = add one entry here + create the module folder.
  */
+
+
+
+
+
 const MODULE_REGISTRY: Record<
   string,
   { label: string; href: string; description: string; color: string }
