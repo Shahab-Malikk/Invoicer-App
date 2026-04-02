@@ -19,7 +19,7 @@ RUN npm install --legacy-peer-deps
 COPY . .
 
 # Build the application using environment variables
-RUN npm run build:${VITE_ENV}
+RUN npm run build
 
 # Stage 2: Development Environment (Node.js)
 FROM node:20.15.1 AS dev
