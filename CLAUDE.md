@@ -1,4 +1,19 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Frontend — Invoicer App (Next.js 15)
+
+## Commands
+
+```bash
+npm run dev       # Start dev server on http://localhost:3000
+npm run build     # Production build — must pass with 0 errors before task is done
+npm run lint      # ESLint check
+npm start         # Start production server (requires build first)
+```
+
+No test framework is configured. Verification is done via `npm run build` (zero errors) and manual browser testing.
 
 ## Stack
 
@@ -8,6 +23,16 @@
 - JWT auth via httpOnly cookie (set by backend, never touched manually)
 - Running on: http://localhost:3000
 - Backend API: http://localhost:5000
+- External auth UI: http://localhost:4005/?app=kycv1 (configurable via NEXT_PUBLIC_AUTH_UI_URL)
+
+## Auth flow (4 layers — read this to understand the security model)
+
+1. **Edge middleware** (`middleware.ts`) — checks cookie _presence_ only, redirects unauthenticated users to external auth UI
+2. **Server layout** (`app/(protected)/layout.tsx`) — reads `auth_token` + `user_info` cookies server-side, hydrates `AuthProvider`
+3. **Client guard** (`core/components/ModuleGuard.tsx`) — checks `user.modules` from context, redirects if user lacks access to a specific module
+4. **Backend `[Authorize]`** — full JWT signature validation on every API call
+
+Login is handled externally. The callback route (`app/auth/callback/route.ts`) exchanges an auth code with the backend, then sets two cookies: `auth_token` (httpOnly) and `user_info` (readable by JS for client hydration).
 
 ---
 

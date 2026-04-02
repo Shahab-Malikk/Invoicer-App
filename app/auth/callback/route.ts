@@ -8,14 +8,13 @@ const X_API_KEY = process.env.NEXT_PUBLIC_X_API_KEY ?? "";
 const MAX_AGE = 60 * 60; // 1 hour
 
 interface ExchangeResponse {
-  data: {
-    name: string;
-    email: string;
-    token: string;
-    expiration: string;
-  };
-  success: boolean;
-  message: string | null;
+  token: string;
+  email: string;
+  name: string;
+  userId: string;
+  modules: string[];
+  expiresAt: string;
+  issuedAt: string;
 }
 
 /**
@@ -57,18 +56,11 @@ export async function GET(request: NextRequest) {
 
     if (res.ok) {
       const json: ExchangeResponse = await res.json();
-      console.log(
-        "[auth/callback] success:",
-        json.success,
-        "| name:",
-        json.data?.name,
-      );
+      console.log("[auth/callback] exchange response:", json);
 
-      if (json.success && json.data) {
-        name = json.data.name ?? "";
-        email = json.data.email ?? "";
-        token = json.data.token;
-      }
+      name = json.name ?? "";
+      email = json.email ?? "";
+      token = json.token ?? token;
     } else {
       const body = await res.text();
       console.error(
