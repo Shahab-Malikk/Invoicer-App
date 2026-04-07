@@ -1,46 +1,43 @@
-ARG NEXT_ENV
-
-# Stage 1: Build
-FROM node:20.15.1 AS build
-
+FROM node:20.15.1-alpine AS deps
 WORKDIR /app
 
+# Install dependencies from lockfile for deterministic, cache-friendly builds
 COPY package.json package-lock.json ./
+RUN npm ci --legacy-peer-deps --no-audit --no-fund \
+    && npm cache clean --force
 
-RUN npm install --legacy-peer-deps
 
-COPY . .
+FROM node:20.15.1-alpine AS build
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PATH=/app/node_modules/.bin:$PATH
 
+COPY --from=deps /app/node_modules ./node_modules
+COPY . ./
 RUN npm run build
 
 
-# Stage 2: Development
-FROM node:20.15.1 AS dev
-
+FROM node:20.15.1-alpine AS dev
 WORKDIR /app
+ENV NODE_ENV=development
+ENV PATH=/app/node_modules/.bin:$PATH
 
-COPY . .
-
-RUN npm install --legacy-peer-deps
+COPY --from=deps /app/node_modules ./node_modules
+COPY . ./
 
 EXPOSE 3000
-
 CMD ["npm", "run", "dev"]
 
 
-# Stage 3: Production
-FROM node:20.15.1 AS production
-
+FROM node:20.15.1-alpine AS runtime
 WORKDIR /app
-
 ENV NODE_ENV=production
+ENV PATH=/app/node_modules/.bin:$PATH
 
-COPY --from=build /app ./
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=build /app/.next ./.next
+COPY --from=build /app/public ./public
+COPY --from=build /app/package.json ./
 
 EXPOSE 3000
-
-CMD ["npm", "run", "start"]
-
-
-# Final stage
-FROM ${NEXT_ENV:-production} AS final
+CMD ["npm", "start"]

@@ -2,7 +2,7 @@ name: CI Dev - TZ
 
 on:
     push:
-        branches: [main]
+        branches: [claude/gallant-mirzakhani]
     pull_request:
         branches: [main]
 
